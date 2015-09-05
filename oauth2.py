@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 with open('config.json') as data_file:
     config =  json.load(data_file)
 
-class oauth2:
+class OAuth2:
     def __init__(self, base_url = None, redirect_uri = None, client_id = None, client_secret = None):
 
         if base_url is not None:
@@ -38,6 +38,9 @@ class oauth2:
                         'scope' : 'email',
                         'response_type' : 'code'}
 
+        if scope is not None:
+            auth_values['scope'] = scope
+
         url_values =  urllib.parse.urlencode(auth_values)
         full_url = config['BASE_URL'] + config['AUTH_URL'] + '?' + url_values
 
@@ -52,7 +55,6 @@ class oauth2:
 
         if  not hasattr(self, 'code'):
             return
-
 
         url_auth = config['BASE_URL'] + config['TOKEN_URL']
         auth_values = {'code' : self.code,
@@ -69,7 +71,7 @@ class oauth2:
         response = urllib.request.urlopen(req)
 
         json_resp = json.loads(response.read().decode('utf-8'))
-        print(json.dumps(json_resp, indent=4, sort_keys=True))
+
         self.id_token = json_resp['id_token']
         self.access_token = json_resp['access_token']
         self.refresh_token = json_resp['refresh_token']
@@ -79,18 +81,19 @@ class oauth2:
         pass
 
     def listenAuth(self):
-        httpd = HTTPServer(('',8000), shit)
+        http_listener = HttpListener
+        http_listener.oauth2 = self
+        httpd = HTTPServer(('',8000), HttpListener)
         httpd.handle_request()
 
-    def do_GET(s):
-        print(s)
+class HttpListener (BaseHTTPRequestHandler):
+    def do_GET(self):
+        path = urllib.parse.urlparse(self.path)
 
-class shit (BaseHTTPRequestHandler):
-    def do_GET(s):
-        print("do_GET(s) s = %s" % (s))
-
-
-oauth = oauth2(redirect_uri='http://localhost:8000')
-
-oauth.getAuth()
-oauth.getToken()
+        qry = path.query.split('=')
+        if hasattr(self, 'oauth2') and len(qry) == 2:
+            self.oauth2.code = qry[1]
+            self.oauth2.getToken()
+            self.send_response(200)
+        else:
+            self.send_response(400)
